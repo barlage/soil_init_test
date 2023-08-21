@@ -6,80 +6,88 @@ use machine, only : kind_phys
 
 implicit none
 
-integer, parameter                             :: im = 1          ! number of spatial grids
-integer, parameter                             :: lsoil = 4       ! input number of layers
-integer, parameter                             :: lsoil_lsm = 4   ! output number of layers
-logical                                        :: lsm_cold_start = .false.
+integer, parameter                              :: im = 1           ! number of spatial grids
+integer, parameter                              :: lsoil_input = 4  ! input number of layers
+integer, parameter                              :: lsoil_lsm   = 4  ! output number of layers
+logical                                         :: lsm_cold_start = .true.
 
-real (kind=kind_phys), dimension(im)           :: tskin_lnd   ! surface temperature
-real (kind=kind_phys), dimension(im)           :: tg3         ! deep soil temperature
-real (kind=kind_phys), dimension(1:lsoil)      :: zsi         ! input depths to interface
-real (kind=kind_phys), dimension(1:lsoil_lsm)  :: zso         ! output depths to interface
-real (kind=kind_phys), dimension(1:lsoil_lsm)  :: dzso        ! output thicknesses
-real (kind=kind_phys), dimension(im,lsoil)     :: smc         ! input soil moisture
-real (kind=kind_phys), dimension(im,lsoil)     :: stc         ! input soil temperature
-real (kind=kind_phys), dimension(im,lsoil)     :: slc         ! input soil liquid
-integer,               dimension(im)           :: stype       ! input soil type
-integer,               dimension(im)           :: vtype       ! input vegetation type
+real (kind=kind_phys), dimension(lsoil_input)   :: soil_depth_input        ! input depths to interface [cm]
+real (kind=kind_phys), dimension(lsoil_lsm)     :: soil_depth_output       ! output depths to interface [cm]
+real (kind=kind_phys), dimension(lsoil_lsm)     :: soil_thickness_output   ! output thicknesses [m]
+real (kind=kind_phys), dimension(im,lsoil_input):: soil_moisture_input     ! input soil moisture
+real (kind=kind_phys), dimension(im,lsoil_input):: soil_temperature_input  ! input soil temperature
+real (kind=kind_phys), dimension(im,lsoil_input):: soil_liquid_input       ! input soil liquid
+integer,               dimension(im)            :: soil_type               ! soil type
 
-real (kind=kind_phys), dimension(im,lsoil_lsm) :: smois       ! output soil moisture
-real (kind=kind_phys), dimension(im,lsoil_lsm) :: tslb        ! output soil temperature
-real (kind=kind_phys), dimension(im,lsoil_lsm) :: sh2o        ! output soil liquid
+real (kind=kind_phys), dimension(im,lsoil_lsm)  :: soil_moisture_output    ! output soil moisture
+real (kind=kind_phys), dimension(im,lsoil_lsm)  :: soil_temperature_output ! output soil temperature
+real (kind=kind_phys), dimension(im,lsoil_lsm)  :: soil_liquid_output      ! output soil liquid
 
-character(len=128)                             :: errmsg
-integer                                        :: errflg
+character(len=128)                              :: errmsg
+integer                                         :: errflg
+integer                                         :: ilev
 
-integer, parameter :: me      = huge(1)
-integer, parameter :: isot    = 1
-integer, parameter :: ivegsrc = 1
-integer, parameter :: nlunit  = huge(1)
-
-stype     = 6
-vtype     = -99999
-tskin_lnd = 300.0
-tg3       = 300.0
-zsi       = (/ 5, 25, 70, 150/)
-zso       = (/ 5, 25, 70, 150/)
-dzso      = (/0.1, 0.3, 0.6, 1.0/)
-smc(1,:)  = (/0.3,0.3,0.3,0.3/)
-slc(1,:)  = (/0.3,0.3,0.3,0.3/)
-stc(1,:)  = (/300.0,300.0,300.0,300.0/)
+soil_type                    = 6
+soil_depth_input             = (/0.05, 0.25, 0.70, 1.50/)
+soil_depth_output            = (/0.05, 0.25, 0.70, 1.50/)
+soil_moisture_input(1,:)     = (/0.3,0.3,0.3,0.3/)
+soil_liquid_input(1,:)       = (/0.3,0.3,0.3,0.3/)
+soil_temperature_input(1,:)  = (/300.0,300.0,300.0,300.0/)
 
 call read_mp_table_parameters(errmsg, errflg)
 
-call noahmpsoilinit (lsm_cold_start, im, lsoil_lsm, lsoil,    & ! in
-                     zsi,zso, dzso,tskin_lnd,tg3, smc, slc, stc,    & ! in
-                     sh2o,tslb, smois, stype, vtype,          & ! in
-                     errmsg, errflg)
+call noahmp_soil_init (lsm_cold_start          , & ! in
+                       im                      , & ! in
+                       lsoil_lsm               , & ! in
+                       lsoil_input             , & ! in
+                       soil_depth_input        , & ! in
+                       soil_depth_output       , & ! in
+                       soil_moisture_input     , & ! in
+                       soil_liquid_input       , & ! in
+                       soil_temperature_input  , & ! in
+                       soil_type               , & ! in
+                       soil_moisture_output    , & ! out
+                       soil_liquid_output      , & ! out
+                       soil_temperature_output , & ! out
+                       errmsg                  , & ! out
+                       errflg                  )   ! out
 
 print *, "input soil temperature:"
-print *, stc
-print *, "input surface temperature:"
-print *, tskin_lnd
-print *, "input deep soil temperature:"
-print *, tg3
+do ilev = 1, lsoil_input
+ print *, soil_depth_input(ilev), soil_temperature_input(1,ilev)
+end do
 
 print *, "output soil temperature:"
-print *, tslb
+do ilev = 1, lsoil_lsm
+ print *, soil_depth_output(ilev), soil_temperature_output(1,ilev)
+end do
 
 print *
 print *, "============================"
 print *
 
 print *, "input soil moisture:"
-print *, smc
+do ilev = 1, lsoil_input
+ print *, soil_depth_input(ilev), soil_moisture_input(1,ilev)
+end do
 
 print *, "output soil moisture:"
-print *, smois
+do ilev = 1, lsoil_lsm
+ print *, soil_depth_output(ilev), soil_moisture_output(1,ilev)
+end do
 
 print *
 print *, "============================"
 print *
 
 print *, "input soil liquid:"
-print *, slc
+do ilev = 1, lsoil_input
+ print *, soil_depth_input(ilev), soil_liquid_input(1,ilev)
+end do
 
 print *, "output soil liquid:"
-print *, sh2o
+do ilev = 1, lsoil_lsm
+ print *, soil_depth_output(ilev), soil_liquid_output(1,ilev)
+end do
 
 end program
