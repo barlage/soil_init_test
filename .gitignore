@@ -1,0 +1,4 @@
+# all compile files
+*.o
+*.mod
+*.exe
