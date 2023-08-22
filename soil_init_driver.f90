@@ -16,7 +16,6 @@ real (kind=kind_phys), dimension(lsoil_lsm)     :: soil_depth_output       ! out
 real (kind=kind_phys), dimension(lsoil_lsm)     :: soil_thickness_output   ! output thicknesses [m]
 real (kind=kind_phys), dimension(im,lsoil_input):: soil_moisture_input     ! input soil moisture
 real (kind=kind_phys), dimension(im,lsoil_input):: soil_temperature_input  ! input soil temperature
-real (kind=kind_phys), dimension(im,lsoil_input):: soil_liquid_input       ! input soil liquid
 integer,               dimension(im)            :: soil_type               ! soil type
 
 real (kind=kind_phys), dimension(im,lsoil_lsm)  :: soil_moisture_output    ! output soil moisture
@@ -30,8 +29,7 @@ integer                                         :: ilev
 soil_type                    = 6
 soil_depth_input             = (/0.05, 0.25, 0.70, 1.50/)
 soil_depth_output            = (/0.05, 0.25, 0.70, 1.50/)
-soil_moisture_input(1,:)     = (/0.0,0.0,0.0,0.4/)
-soil_liquid_input(1,:)       = (/0.3,0.3,0.3,0.3/)
+soil_moisture_input(1,:)     = (/0.0,0.0,0.0,0.3/)
 soil_temperature_input(1,:)  = (/300.0,300.0,300.0,300.0/)
 
 call read_mp_table_parameters(errmsg, errflg)
@@ -43,7 +41,6 @@ call noahmp_soil_init (lsm_cold_start          , & ! in
                        soil_depth_input        , & ! in
                        soil_depth_output       , & ! in
                        soil_moisture_input     , & ! in
-                       soil_liquid_input       , & ! in
                        soil_temperature_input  , & ! in
                        soil_type               , & ! in
                        soil_moisture_output    , & ! out
@@ -79,11 +76,6 @@ end do
 print *
 print *, "============================"
 print *
-
-print *, "input soil liquid:"
-do ilev = 1, lsoil_input
- print *, soil_depth_input(ilev), soil_liquid_input(1,ilev)
-end do
 
 print *, "output soil liquid:"
 do ilev = 1, lsoil_lsm

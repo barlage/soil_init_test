@@ -11,7 +11,6 @@ contains
                               soil_depth_input        , & ! in
                               soil_depth_output       , & ! in
                               soil_moisture_input     , & ! in
-                              soil_liquid_input       , & ! in
                               soil_temperature_input  , & ! in
                               soil_type               , & ! in
                               soil_moisture_output    , & ! out
@@ -32,7 +31,6 @@ contains
       real (kind=kind_phys), dimension(lsoil_input),    intent(in   ) :: soil_depth_input
       real (kind=kind_phys), dimension(lsoil_lsm),      intent(in   ) :: soil_depth_output
       real (kind=kind_phys), dimension(im,lsoil_input), intent(in   ) :: soil_moisture_input
-      real (kind=kind_phys), dimension(im,lsoil_input), intent(in   ) :: soil_liquid_input
       real (kind=kind_phys), dimension(im,lsoil_input), intent(in   ) :: soil_temperature_input
 
       integer,               dimension(im),             intent(in   ) :: soil_type
@@ -48,7 +46,6 @@ contains
 
       real (kind=kind_phys), dimension(   0:lsoil_input+1)            :: interp_levels 
       real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_moisture_interp
-      real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_liquid_interp
       real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_temperature_interp
       real (kind=kind_phys), dimension(     lsoil_input)              :: level_bottom_input
       real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_thickness_output
@@ -84,7 +81,6 @@ contains
       
       soil_temperature_interp(:,1:lsoil_input) = soil_temperature_input
       soil_moisture_interp   (:,1:lsoil_input) = soil_moisture_input
-      soil_liquid_interp     (:,1:lsoil_input) = soil_liquid_input
 
 ! Linear creation of top and bottom boundary temperature and moisture
 
