@@ -50,7 +50,12 @@ contains
       real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_moisture_interp
       real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_liquid_interp
       real (kind=kind_phys), dimension(im,0:lsoil_input+1)            :: soil_temperature_interp
-      real (kind=kind_phys), dimension(     lsoil_input)              :: level_bottom
+      real (kind=kind_phys), dimension(     lsoil_input)              :: level_bottom_input
+      real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_thickness_output
+      real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_field_capacity 
+      real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_porosity 
+      real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_wilting_point 
+      real (kind=kind_phys), dimension(     lsoil_lsm)                :: level_water 
 
       integer :: iloc, ilev, lhave, lwant
       real (kind=kind_phys) :: porosity, bexp, psisat, soil_matric_potential
@@ -68,14 +73,14 @@ contains
 
 ! interp_levels includes the top(0m) and bottom of the input soil column
 
-      level_bottom(1) = 2.0 * soil_depth_input(1)
+      level_bottom_input(1) = 2.0 * soil_depth_input(1)
       do ilev = 2, lsoil_input
-        level_bottom(ilev) = level_bottom(ilev-1) + 2.0 * (soil_depth_input(ilev) - level_bottom(ilev-1))
+        level_bottom_input(ilev) = level_bottom_input(ilev-1) + 2.0 * (soil_depth_input(ilev) - level_bottom_input(ilev-1))
       end do
 
       interp_levels(0)             = 0.0
       interp_levels(1:lsoil_input) = soil_depth_input
-      interp_levels(lsoil_input+1) = level_bottom(lsoil_input)
+      interp_levels(lsoil_input+1) = level_bottom_input(lsoil_input)
       
       soil_temperature_interp(:,1:lsoil_input) = soil_temperature_input
       soil_moisture_interp   (:,1:lsoil_input) = soil_moisture_input
@@ -140,27 +145,40 @@ contains
 
 ! Move water around to keep within [wilting point, field capacity]
 
+      level_thickness_output(1) = 2.0 * soil_depth_output(1)
+      do ilev = 2, lsoil_lsm
+        level_thickness_output(ilev) = 2.0 * (soil_depth_output(ilev) - sum(level_thickness_output(1:ilev-1)))
+      end do
+      
       do iloc = 1 , im
+
         wilting_point  = smcwlt_table(soil_type(iloc))
         field_capacity = smcref_table(soil_type(iloc))
         porosity       = smcmax_table(soil_type(iloc))
-      do ilev = 1 , lsoil_lsm-1
-        if(soil_moisture_output(iloc,ilev) > field_capacity) then   ! move excess water down to next layer
-          soil_moisture_output(iloc,ilev+1) = soil_moisture_output(iloc,ilev+1) + &
-                                   (soil_moisture_output(iloc,ilev) - field_capacity)
-          soil_moisture_output(iloc,ilev) = field_capacity
-        elseif(soil_moisture_output(iloc,ilev) < wilting_point) then ! take deficit water from next layer
-          soil_moisture_output(iloc,ilev+1) = soil_moisture_output(iloc,ilev+1) - &
-                                   (wilting_point - soil_moisture_output(iloc,ilev))
-          soil_moisture_output(iloc,ilev) = wilting_point
-        end if
-      end do
+        level_wilting_point  = level_thickness_output * wilting_point   ! meters of water
+        level_field_capacity = level_thickness_output * field_capacity
+        level_porosity       = level_thickness_output * porosity
+        level_water          = level_thickness_output * soil_moisture_output(iloc,:)
 
-      if(soil_moisture_output(iloc,lsoil_lsm) > porosity) then
-        soil_moisture_output(iloc,lsoil_lsm) = porosity
-      elseif(soil_moisture_output(iloc,lsoil_lsm) < wilting_point) then
-        soil_moisture_output(iloc,lsoil_lsm) = wilting_point
-      end if
+        do ilev = 1 , lsoil_lsm-1
+          if(level_water(ilev) > level_field_capacity(ilev)) then   ! move excess water down to next layer
+            level_water(ilev+1) = level_water(ilev+1) + &
+                                     (level_water(ilev) - level_field_capacity(ilev))
+            level_water(ilev) = level_field_capacity(ilev)
+          elseif(level_water(ilev) < level_wilting_point(ilev)) then ! take deficit water from next layer
+            level_water(ilev+1) = level_water(ilev+1) - &
+                                     (level_wilting_point(ilev) - level_water(ilev))
+            level_water(ilev) = level_wilting_point(ilev)
+          end if
+        end do
+
+        if(level_water(lsoil_lsm) > level_porosity(lsoil_lsm)) then
+          level_water(lsoil_lsm) = level_porosity(lsoil_lsm)
+        elseif(level_water(lsoil_lsm) < level_wilting_point(lsoil_lsm)) then
+          level_water(lsoil_lsm) = level_wilting_point(lsoil_lsm)
+        end if
+      
+        soil_moisture_output(iloc,:) = level_water / level_thickness_output
       
       end do
       
