@@ -7,8 +7,8 @@ use machine, only : kind_phys
 implicit none
 
 integer, parameter                              :: im = 1           ! number of spatial grids
-integer, parameter                              :: lsoil_input = 4  ! input number of layers
-integer, parameter                              :: lsoil_lsm   = 4  ! output number of layers
+integer, parameter                              :: lsoil_input = 3  ! input number of layers
+integer, parameter                              :: lsoil_lsm   = 8  ! output number of layers
 logical                                         :: lsm_cold_start = .true.
 
 real (kind=kind_phys), dimension(lsoil_input)   :: soil_depth_input        ! input depths to interface [cm]
@@ -28,11 +28,13 @@ integer                                         :: errflg
 integer                                         :: ilev
 
 soil_type                    = 6
-soil_depth_input             = (/0.05, 0.25, 0.70, 1.50/)
-soil_depth_output            = (/0.05, 0.25, 0.70, 1.50/)
-soil_moisture_input(1,:)     = (/0.3,0.3,0.3,0.3/)
-soil_liquid_input(1,:)       = (/0.3,0.3,0.3,0.3/)
-soil_temperature_input(1,:)  = (/300.0,300.0,300.0,300.0/)
+!soil_depth_input             = (/0.05, 0.25, 0.70, 1.50/)
+!soil_depth_output            = (/0.05, 0.25, 0.70, 1.50/)
+soil_depth_input             = (/0.5,1.5,2.5/)
+soil_depth_output            = (/0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5/)
+soil_moisture_input(1,:)     = (/0.5,0.5,0.5/)
+soil_liquid_input(1,:)       = (/0.3,0.3,0.3/)
+soil_temperature_input(1,:)  = (/100.0,200.0,300.0/)
 
 call read_mp_table_parameters(errmsg, errflg)
 

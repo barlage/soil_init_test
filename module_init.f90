@@ -21,7 +21,7 @@ contains
                               errflg                  )   ! out
 
 
-      use noahmp_tables, only: smcref_table, smcdry_table, bexp_table, psisat_table, smcmax_table
+      use noahmp_tables, only: smcref_table, smcwlt_table, bexp_table, psisat_table, smcmax_table
 
       implicit none
 
@@ -53,7 +53,8 @@ contains
       real (kind=kind_phys), dimension(     lsoil_input)              :: level_bottom
 
       integer :: iloc, ilev, lhave, lwant
-      real (kind=kind_phys) :: porosity, bexp, psisat, soil_matric_potential, supercool_water
+      real (kind=kind_phys) :: porosity, bexp, psisat, soil_matric_potential
+      real (kind=kind_phys) :: supercool_water, field_capacity, wilting_point
       
       real (kind=kind_phys), parameter :: latent_heat_fusion = 0.3336e06
       real (kind=kind_phys), parameter :: temperature_freezing = 273.16
@@ -108,31 +109,62 @@ contains
 
         if( soil_depth_output(lwant) > interp_levels(lsoil_input+1) ) then   ! output_depth below input_depths
           do iloc = 1 , im
-            soil_temperature_output(iloc,lwant) = soil_temperature_input(iloc,lsoil_input+1)
-            soil_moisture_output   (iloc,lwant) = soil_moisture_input(iloc,lsoil_input+1)
+            soil_temperature_output(iloc,lwant) = soil_temperature_interp(iloc,lsoil_input+1)
+            soil_moisture_output   (iloc,lwant) = soil_moisture_interp(iloc,lsoil_input+1)
           end do
           exit level_want1
         end if
 
         level_have1 : do lhave = 0 , lsoil_input
-            if( ( soil_depth_output(lwant) >= interp_levels(lhave  ) ) .and. &
-                ( soil_depth_output(lwant) <= interp_levels(lhave+1) ) ) then   ! output_depth between input_depths
-               do iloc = 1 , im
-                 soil_temperature_output(iloc,lwant) = &
-                    ( soil_temperature_input(iloc,lhave  ) * ( interp_levels(lhave+1) - soil_depth_output(lwant) ) + &
-                      soil_temperature_input(iloc,lhave+1) * ( soil_depth_output(lwant) - interp_levels(lhave)) )  / &
-                                                          ( interp_levels(lhave+1) - interp_levels(lhave) )
-                 soil_moisture_output(iloc,lwant) = &
-                    ( soil_moisture_input(iloc,lhave  ) * ( interp_levels(lhave+1) - soil_depth_output(lwant) ) + &
-                      soil_moisture_input(iloc,lhave+1) * ( soil_depth_output(lwant) - interp_levels(lhave)) )  / &
-                                                          ( interp_levels(lhave+1) - interp_levels(lhave) )
-               end do
-               exit level_have1
-            end if
+          if( ( soil_depth_output(lwant) >= interp_levels(lhave  ) ) .and. &
+              ( soil_depth_output(lwant) <= interp_levels(lhave+1) ) ) then   ! output_depth between input_depths
+            do iloc = 1 , im
+              soil_temperature_output(iloc,lwant) = soil_temperature_interp(iloc,lhave+1) + &
+                    ( soil_depth_output(lwant) - interp_levels(lhave+1) ) * &
+                    ( soil_temperature_interp(iloc,lhave) - soil_temperature_interp(iloc,lhave+1) ) / &
+                    ( interp_levels(lhave) - interp_levels(lhave+1) )
+              soil_moisture_output(iloc,lwant) = soil_moisture_interp(iloc,lhave+1) + &
+                    ( soil_depth_output(lwant) - interp_levels(lhave+1) ) * &
+                    ( soil_moisture_interp(iloc,lhave) - soil_moisture_interp(iloc,lhave+1) ) / &
+                    ( interp_levels(lhave) - interp_levels(lhave+1) )
+            end do
+            exit level_have1
+          end if
         end do level_have1
       end do level_want1
 
-! Initialize liquid soil moisture from total soil moisture and soil temperature
+! Some arbitrary limits to temperature
+
+      where(soil_temperature_output < 200.0) soil_temperature_output = 200.0
+      where(soil_temperature_output > 350.0) soil_temperature_output = 350.0
+
+! Move water around to keep within [wilting point, field capacity]
+
+      do iloc = 1 , im
+        wilting_point  = smcwlt_table(soil_type(iloc))
+        field_capacity = smcref_table(soil_type(iloc))
+        porosity       = smcmax_table(soil_type(iloc))
+      do ilev = 1 , lsoil_lsm-1
+        if(soil_moisture_output(iloc,ilev) > field_capacity) then   ! move excess water down to next layer
+          soil_moisture_output(iloc,ilev+1) = soil_moisture_output(iloc,ilev+1) + &
+                                   (soil_moisture_output(iloc,ilev) - field_capacity)
+          soil_moisture_output(iloc,ilev) = field_capacity
+        elseif(soil_moisture_output(iloc,ilev) < wilting_point) then ! take deficit water from next layer
+          soil_moisture_output(iloc,ilev+1) = soil_moisture_output(iloc,ilev+1) - &
+                                   (wilting_point - soil_moisture_output(iloc,ilev))
+          soil_moisture_output(iloc,ilev) = wilting_point
+        end if
+      end do
+
+      if(soil_moisture_output(iloc,lsoil_lsm) > porosity) then
+        soil_moisture_output(iloc,lsoil_lsm) = porosity
+      elseif(soil_moisture_output(iloc,lsoil_lsm) < wilting_point) then
+        soil_moisture_output(iloc,lsoil_lsm) = wilting_point
+      end if
+      
+      end do
+      
+! Initialize liquid soil moisture from total soil moisture and soil temperature using Niu and Yang (2006)
 
       do iloc = 1 , im
         porosity = smcmax_table(soil_type(iloc))
